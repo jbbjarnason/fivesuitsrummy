@@ -221,6 +221,7 @@ jobs:
           SMTP_HOST: localhost
           SMTP_PORT: 1025
           PORT: 8080
+          DISABLE_RATE_LIMIT: 'true'
         run: |
           cd server
           dart run bin/server.dart > /tmp/server.log 2>&1 &
