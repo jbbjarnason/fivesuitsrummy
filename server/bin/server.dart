@@ -26,8 +26,14 @@ void main() async {
 
   final log = Logger('Server');
 
-  // Load environment
-  final env = DotEnv()..load();
+  // Load environment (if .env file exists)
+  final env = DotEnv();
+  try {
+    env.load();
+  } catch (_) {
+    // .env file doesn't exist, which is fine in CI
+    log.info('No .env file found, using system environment variables');
+  }
 
   // Configuration (system env takes precedence over .env file)
   String getEnv(String key, [String? defaultValue]) =>
