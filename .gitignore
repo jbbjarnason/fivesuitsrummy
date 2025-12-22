@@ -49,6 +49,10 @@ app/web/favicon.png
 *.pem
 *_creds.json
 credentials.json
+key.properties
+*.jks
+*.keystore
+ExportOptions.plist
 
 # Test artifacts
 /tmp/

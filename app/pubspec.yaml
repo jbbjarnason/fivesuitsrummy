@@ -1,5 +1,5 @@
 name: fivecrowns_app
-description: Five Crowns card game app
+description: Five Crowns card game - fcrown.centroid.is
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -42,6 +42,29 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.2
+
+# App icon configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "logo/five_crowns_icon_1024.png"
+  adaptive_icon_background: "#1a1a2e"
+  adaptive_icon_foreground: "logo/five_crowns_icon_1024.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "logo/five_crowns_icon_1024.png"
+    background_color: "#1a1a2e"
+    theme_color: "#1a1a2e"
+  windows:
+    generate: true
+    image_path: "logo/five_crowns_icon_1024.png"
+  macos:
+    generate: true
+    image_path: "logo/five_crowns_icon_1024.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - logo/
