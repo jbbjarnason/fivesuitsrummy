@@ -129,30 +129,37 @@ test.describe('Cross-Platform Multiplayer', () => {
 
     // Step 4: Web player logs in and navigates to game
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(4000); // Give Flutter time to render
 
-    // Login as host
-    await page.locator('input[type="email"], input:has-text("Email")').first().fill(hostUser.email);
-    await page.locator('input[type="password"]').first().fill(hostUser.password);
-    await page.getByRole('button', { name: 'Login' }).click();
+    // Get viewport size for coordinate-based clicking (Flutter CanvasKit)
+    const viewport = page.viewportSize() || { width: 1280, height: 720 };
+    const centerX = viewport.width / 2;
 
-    // Wait for games screen
-    await page.waitForTimeout(2000);
-    await expect(page.getByText('My Games')).toBeVisible({ timeout: 10000 });
+    // Login as host using coordinate-based clicking (Flutter renders to canvas)
+    // Email field is roughly at 42% from top
+    await page.mouse.click(centerX, viewport.height * 0.42);
+    await page.waitForTimeout(500);
+    await page.keyboard.type(hostUser.email, { delay: 20 });
+
+    // Password field is roughly at 52% from top
+    await page.mouse.click(centerX, viewport.height * 0.52);
+    await page.waitForTimeout(500);
+    await page.keyboard.type(hostUser.password, { delay: 20 });
+
+    // Press Enter to submit
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(4000);
+
+    console.log(`After login, URL is: ${page.url()}`);
 
     // Click on the game to enter lobby
     console.log('Web host entering game lobby...');
     await page.waitForTimeout(1000);
 
-    // Try to find and click the game
-    const gameCards = page.locator('[class*="Card"], [class*="card"]');
-    const cardCount = await gameCards.count();
-    console.log(`Found ${cardCount} game cards`);
-
-    if (cardCount > 0) {
-      await gameCards.first().click();
-      await page.waitForTimeout(2000);
-    }
+    // Navigate directly to the game since we can't click canvas elements
+    await page.goto(`/#/games/${game.gameId}`);
+    await page.waitForTimeout(2000);
 
     // Step 5: Write iOS user credentials to a file for the iOS test to pick up
     const credentials = {
