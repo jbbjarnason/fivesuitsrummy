@@ -177,7 +177,7 @@ jobs:
       - name: Build Web
         run: |
           cd app
-          flutter build web --release --web-renderer html
+          flutter build web --release
 
       - name: Create web archive
         run: |
