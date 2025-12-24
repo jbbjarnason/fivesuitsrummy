@@ -54,7 +54,9 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > app/android/app/upload-keystore.jks
+          echo "$KEYSTORE_BASE64" | tr -d '\n\r ' | base64 --decode > app/android/app/upload-keystore.jks
+          # Verify the keystore was decoded correctly
+          file app/android/app/upload-keystore.jks
 
       - name: Create key.properties
         if: github.event_name != 'pull_request'
@@ -63,12 +65,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          cat > app/android/key.properties << EOF
-          storePassword=$STORE_PASSWORD
-          keyPassword=$KEY_PASSWORD
-          keyAlias=$KEY_ALIAS
-          storeFile=upload-keystore.jks
-          EOF
+          cat > app/android/key.properties << 'KEYPROPS'
+storePassword=$STORE_PASSWORD
+keyPassword=$KEY_PASSWORD
+keyAlias=$KEY_ALIAS
+storeFile=upload-keystore.jks
+KEYPROPS
+          # Substitute env vars (heredoc with quotes doesn't expand)
+          sed -i "s|\$STORE_PASSWORD|$STORE_PASSWORD|g" app/android/key.properties
+          sed -i "s|\$KEY_PASSWORD|$KEY_PASSWORD|g" app/android/key.properties
+          sed -i "s|\$KEY_ALIAS|$KEY_ALIAS|g" app/android/key.properties
 
       - name: Build APK (debug - PR)
         if: github.event_name == 'pull_request'
