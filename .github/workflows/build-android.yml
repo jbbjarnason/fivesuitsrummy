@@ -65,16 +65,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
-          cat > app/android/key.properties << 'KEYPROPS'
-storePassword=$STORE_PASSWORD
-keyPassword=$KEY_PASSWORD
-keyAlias=$KEY_ALIAS
-storeFile=upload-keystore.jks
-KEYPROPS
-          # Substitute env vars (heredoc with quotes doesn't expand)
-          sed -i "s|\$STORE_PASSWORD|$STORE_PASSWORD|g" app/android/key.properties
-          sed -i "s|\$KEY_PASSWORD|$KEY_PASSWORD|g" app/android/key.properties
-          sed -i "s|\$KEY_ALIAS|$KEY_ALIAS|g" app/android/key.properties
+          echo "storePassword=$STORE_PASSWORD" > app/android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> app/android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> app/android/key.properties
+          echo "storeFile=upload-keystore.jks" >> app/android/key.properties
 
       - name: Build APK (debug - PR)
         if: github.event_name == 'pull_request'
