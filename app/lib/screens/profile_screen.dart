@@ -208,6 +208,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (confirmed == true && mounted) {
                     await ref.read(authProvider).logout();
                     if (mounted) {
+                      // ignore: use_build_context_synchronously
                       context.beamToNamed('/login');
                     }
                   }

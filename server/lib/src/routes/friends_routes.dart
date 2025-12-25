@@ -196,7 +196,7 @@ class FriendsRoutes {
             fromUserId: userId,
             fromUsername: sender.username,
             fromDisplayName: sender.displayName,
-            message: '${sender.displayName ?? sender.username} sent you a friend request',
+            message: '${sender.displayName} sent you a friend request',
           ),
         );
       }
@@ -257,7 +257,7 @@ class FriendsRoutes {
             fromUserId: userId,
             fromUsername: accepter.username,
             fromDisplayName: accepter.displayName,
-            message: '${accepter.displayName ?? accepter.username} accepted your friend request',
+            message: '${accepter.displayName} accepted your friend request',
           ),
         );
       }
@@ -362,7 +362,7 @@ class FriendsRoutes {
           fromUserId: userId,
           fromUsername: remover.username,
           fromDisplayName: remover.displayName,
-          message: '${remover.displayName ?? remover.username} removed you as a friend',
+          message: '${remover.displayName} removed you as a friend',
         ),
       );
     }

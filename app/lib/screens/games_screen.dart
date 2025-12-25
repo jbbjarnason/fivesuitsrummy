@@ -223,7 +223,7 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isUnread ? Colors.blue.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+          backgroundColor: isUnread ? Colors.blue.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
           child: Icon(icon, color: isUnread ? Colors.blue : Colors.grey),
         ),
         title: Text(

@@ -50,7 +50,7 @@ class LiveKitProvider extends ChangeNotifier {
     final participant = _room!.remoteParticipants[_activePlayerId];
     if (participant != null) {
       final publications = participant.videoTrackPublications;
-      debugPrint('[LiveKit] Remote participant ${_activePlayerId} video publications: ${publications.length}');
+      debugPrint('[LiveKit] Remote participant $_activePlayerId video publications: ${publications.length}');
       final track = publications.firstOrNull?.track as VideoTrack?;
       debugPrint('[LiveKit] Returning remote video track: $track');
       return track;

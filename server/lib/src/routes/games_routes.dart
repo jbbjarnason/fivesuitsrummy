@@ -206,7 +206,7 @@ class GamesRoutes {
         EvtGameDeleted(
           gameId: gameId,
           deletedByUserId: userId,
-          deletedByUsername: host.displayName ?? host.username,
+          deletedByUsername: host.displayName,
         ),
       );
     }
@@ -314,7 +314,7 @@ class GamesRoutes {
             fromUserId: userId,
             fromUsername: inviterUser.username,
             fromDisplayName: inviterUser.displayName,
-            message: '${inviterUser.displayName ?? inviterUser.username} invited you to a game',
+            message: '${inviterUser.displayName} invited you to a game',
           ),
         );
       }
@@ -370,7 +370,7 @@ class GamesRoutes {
           fromUserId: userId,
           fromUsername: nudger.username,
           fromDisplayName: nudger.displayName,
-          message: '${nudger.displayName ?? nudger.username} wants you to start the game!',
+          message: '${nudger.displayName} wants you to start the game!',
         ),
       );
     }
@@ -430,7 +430,7 @@ class GamesRoutes {
           fromUserId: userId,
           fromUsername: nudger.username,
           fromDisplayName: nudger.displayName,
-          message: '${nudger.displayName ?? nudger.username} is waiting for you to play!',
+          message: '${nudger.displayName} is waiting for you to play!',
         ),
       );
     }
