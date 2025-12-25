@@ -240,7 +240,6 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
   @override
   Widget build(BuildContext context) {
     final games = ref.watch(gamesProvider);
-    final auth = ref.watch(authProvider);
     final notifications = ref.watch(notificationsProvider);
 
     return Scaffold(

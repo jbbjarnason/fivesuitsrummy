@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:fivecrowns_core/fivecrowns_core.dart' as core;
-import 'package:fivecrowns_protocol/fivecrowns_protocol.dart';
 import 'package:test/test.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:stream_channel/stream_channel.dart';
