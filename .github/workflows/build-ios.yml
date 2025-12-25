@@ -123,10 +123,14 @@ jobs:
           mkdir -p ~/.private_keys
           echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > ~/.private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
 
+          # List IPA directory contents for debugging
+          echo "Contents of app/build/ios/ipa/:"
+          ls -la app/build/ios/ipa/
+
           # Upload to App Store Connect
           xcrun altool --upload-app \
             --type ios \
-            --file app/build/ios/ipa/*.ipa \
+            --file "app/build/ios/ipa/Five Crowns.ipa" \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
