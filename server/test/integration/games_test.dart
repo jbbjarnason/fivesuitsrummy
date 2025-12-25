@@ -420,4 +420,105 @@ void main() {
       expect(json['error'], 'game_started');
     });
   });
+
+  group('Leave Game', () {
+    late String gameId;
+
+    setUp(() async {
+      // Make player1 and player2 friends first
+      await harness.request(
+        'POST',
+        '/friends/request',
+        body: {'userId': user2Id},
+        authToken: user1Token,
+      );
+      await harness.request(
+        'POST',
+        '/friends/accept',
+        body: {'userId': user1Id},
+        authToken: user2Token,
+      );
+
+      // Create a game with player1 as host
+      final createResponse = await harness.request(
+        'POST',
+        '/games/',
+        body: {'maxPlayers': 4},
+        authToken: user1Token,
+      );
+      final json = await harness.parseJson(createResponse);
+      gameId = json['gameId'] as String;
+
+      // Invite player2 (now friends)
+      await harness.request(
+        'POST',
+        '/games/$gameId/invite',
+        body: {'userId': user2Id},
+        authToken: user1Token,
+      );
+    });
+
+    test('guest can leave game', () async {
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/leave',
+        authToken: user2Token,
+      );
+
+      expect(response.statusCode, 200);
+      final json = await harness.parseJson(response);
+      expect(json['status'], 'left');
+
+      // Verify player is no longer in game
+      final gameResponse = await harness.request(
+        'GET',
+        '/games/$gameId',
+        authToken: user1Token,
+      );
+      final gameJson = await harness.parseJson(gameResponse);
+      final players = gameJson['players'] as List;
+      expect(players.any((p) => p['id'] == user2Id), false);
+    });
+
+    test('host cannot leave game', () async {
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/leave',
+        authToken: user1Token,
+      );
+
+      expect(response.statusCode, 400);
+      final json = await harness.parseJson(response);
+      expect(json['error'], 'is_host');
+    });
+
+    test('cannot leave started game', () async {
+      // Start the game
+      await harness.db.customStatement(
+        "UPDATE games SET status = 'active' WHERE id = '$gameId'"
+      );
+
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/leave',
+        authToken: user2Token,
+      );
+
+      expect(response.statusCode, 400);
+      final json = await harness.parseJson(response);
+      expect(json['error'], 'game_started');
+    });
+
+    test('non-member cannot leave game', () async {
+      final response = await harness.request(
+        'POST',
+        '/games/$gameId/leave',
+        authToken: user3Token,
+      );
+
+      expect(response.statusCode, 400);
+      final json = await harness.parseJson(response);
+      expect(json['error'], 'not_in_game');
+    });
+  });
 }

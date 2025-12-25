@@ -260,6 +260,11 @@ class ApiService {
     return response.statusCode == 200;
   }
 
+  Future<bool> leaveGame(String gameId) async {
+    final response = await post('/games/$gameId/leave');
+    return response.statusCode == 200;
+  }
+
   Future<bool> nudgeHost(String gameId) async {
     final response = await post('/games/$gameId/nudge');
     return response.statusCode == 200;

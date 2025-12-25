@@ -337,6 +337,9 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
             );
           }
 
+          final auth = ref.read(authProvider);
+          final myUserId = auth.userId;
+
           return RefreshIndicator(
             onRefresh: () => games.loadGames(),
             child: ListView.builder(
@@ -350,8 +353,12 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
                 final status = game['status']?.toString() ?? 'lobby';
                 final maxPlayers = (game['maxPlayers'] as int?) ?? 4;
                 final dateStr = _formatDate(game['createdAt']);
+                final createdBy = game['createdBy']?.toString();
+                final isHost = createdBy == myUserId;
+                final isFinished = status == 'finished';
+                final canSwipe = !isFinished && status == 'lobby';
 
-                return Card(
+                final card = Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
                     title: Text('Game ${gameId.length > 8 ? gameId.substring(0, 8) : gameId}'),
@@ -362,6 +369,77 @@ class _GamesScreenState extends ConsumerState<GamesScreen> {
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () => context.beamToNamed('/games/$gameId'),
                   ),
+                );
+
+                if (!canSwipe) {
+                  return card;
+                }
+
+                return Dismissible(
+                  key: Key(gameId),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isHost ? Colors.red : Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Icon(
+                          isHost ? Icons.delete : Icons.exit_to_app,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isHost ? 'Delete' : 'Leave',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  confirmDismiss: (direction) async {
+                    final action = isHost ? 'delete' : 'leave';
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('${action[0].toUpperCase()}${action.substring(1)} Game?'),
+                        content: Text(
+                          isHost
+                              ? 'Are you sure you want to delete this game? All players will be notified.'
+                              : 'Are you sure you want to leave this game?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: TextButton.styleFrom(
+                              foregroundColor: isHost ? Colors.red : Colors.orange,
+                            ),
+                            child: Text(action[0].toUpperCase() + action.substring(1)),
+                          ),
+                        ],
+                      ),
+                    );
+                    return confirmed ?? false;
+                  },
+                  onDismissed: (direction) async {
+                    if (isHost) {
+                      await ref.read(gamesProvider).deleteGame(gameId);
+                    } else {
+                      await ref.read(gamesProvider).leaveGame(gameId);
+                    }
+                  },
+                  child: card,
                 );
               },
             ),

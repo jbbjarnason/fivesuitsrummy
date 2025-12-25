@@ -21,8 +21,11 @@ class GameScreen extends ConsumerStatefulWidget {
 }
 
 class _GameScreenState extends ConsumerState<GameScreen> {
-  final Set<String> _selectedCards = {};
-  final List<List<String>> _melds = [];
+  // Track selected cards by their index in game.hand (not by string value)
+  // This allows selecting duplicate cards like two 7♠
+  final Set<int> _selectedCardIndices = {};
+  // Track melds by card indices in game.hand
+  final List<List<int>> _meldIndices = [];
   bool _showTutorial = false;
 
   // Lay off target selection
@@ -118,29 +121,39 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     super.dispose();
   }
 
-  void _toggleCardSelection(String card) {
+  void _toggleCardSelection(int cardIndex) {
     setState(() {
-      if (_selectedCards.contains(card)) {
-        _selectedCards.remove(card);
+      if (_selectedCardIndices.contains(cardIndex)) {
+        _selectedCardIndices.remove(cardIndex);
       } else {
-        _selectedCards.add(card);
+        _selectedCardIndices.add(cardIndex);
       }
     });
   }
 
+  /// Convert selected card indices to card strings using the game hand
+  List<String> _getSelectedCards(List<String> hand) {
+    return _selectedCardIndices.map((i) => hand[i]).toList();
+  }
+
+  /// Convert meld indices to card strings
+  List<List<String>> _getMelds(List<String> hand) {
+    return _meldIndices.map((meld) => meld.map((i) => hand[i]).toList()).toList();
+  }
+
   void _createMeldFromSelection() {
-    if (_selectedCards.length >= 3) {
+    if (_selectedCardIndices.length >= 3) {
       setState(() {
-        _melds.add(_selectedCards.toList());
-        _selectedCards.clear();
+        _meldIndices.add(_selectedCardIndices.toList());
+        _selectedCardIndices.clear();
       });
     }
   }
 
   void _clearMelds() {
     setState(() {
-      _melds.clear();
-      _selectedCards.clear();
+      _meldIndices.clear();
+      _selectedCardIndices.clear();
       _layOffTargetPlayerIndex = null;
       _layOffTargetMeldIndex = null;
     });
@@ -160,16 +173,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _layOffCards() {
+    final game = ref.read(gameProvider);
     if (_layOffTargetPlayerIndex != null &&
         _layOffTargetMeldIndex != null &&
-        _selectedCards.isNotEmpty) {
-      ref.read(gameProvider).layOff(
+        _selectedCardIndices.isNotEmpty) {
+      final selectedCards = _getSelectedCards(game.hand);
+      game.layOff(
             _layOffTargetPlayerIndex!,
             _layOffTargetMeldIndex!,
-            _selectedCards.toList(),
+            selectedCards,
           );
       setState(() {
-        _selectedCards.clear();
+        _selectedCardIndices.clear();
         _layOffTargetPlayerIndex = null;
         _layOffTargetMeldIndex = null;
       });
@@ -177,16 +192,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _layMelds() {
-    if (_melds.isNotEmpty) {
-      ref.read(gameProvider).layMelds(_melds);
+    final game = ref.read(gameProvider);
+    if (_meldIndices.isNotEmpty) {
+      final melds = _getMelds(game.hand);
+      game.layMelds(melds);
       _clearMelds();
     }
   }
 
   void _goOut(String discardCard) {
     final game = ref.read(gameProvider);
-    if (game.canGoOut(_melds, discardCard)) {
-      game.goOut(_melds, discardCard);
+    final melds = _getMelds(game.hand);
+    if (game.canGoOut(melds, discardCard)) {
+      game.goOut(melds, discardCard);
       _clearMelds();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -266,7 +284,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isMe ? 'You' : 'Player ${player['seat'] + 1}',
+                      isMe ? 'You' : (player['displayName'] as String? ?? player['username'] as String? ?? 'Player ${(player['seat'] as int) + 1}'),
                       style: TextStyle(
                         fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
                       ),
@@ -297,21 +315,24 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final game = ref.watch(gameProvider);
-    final auth = ref.watch(authProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'logo/five_crowns_icon_96.png',
-              width: 32,
-              height: 32,
+        titleSpacing: 0,
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            'Round ${game.roundNumber}/11',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: AppTheme.primary,
             ),
-            const SizedBox(width: 8),
-            const Text('Five Crowns'),
-          ],
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -321,179 +342,127 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           },
         ),
         actions: [
-          // LiveKit audio controls
+          // LiveKit audio controls (compact)
           LiveKitControls(
             gameId: widget.gameId,
             activePlayerId: game.currentPlayerId,
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'How to play',
-            onPressed: () => setState(() => _showTutorial = true),
-          ),
-          IconButton(
-            icon: Icon(
-              ref.watch(themeProvider).isDark
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
-            ),
-            tooltip: 'Toggle theme',
-            onPressed: () => ref.read(themeProvider).toggle(),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Round ${game.roundNumber}/11',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Builder(
-            builder: (context) {
-              if (game.error != null) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: ${game.error}', style: const TextStyle(color: Colors.red)),
-                      ElevatedButton(
-                        onPressed: () => game.clearError(),
-                        child: const Text('Dismiss'),
-                      ),
-                    ],
-                  ),
-                );
+          // Overflow menu for less critical actions
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'help':
+                  setState(() => _showTutorial = true);
+                  break;
+                case 'theme':
+                  ref.read(themeProvider).toggle();
+                  break;
               }
-
-              if (game.gameStatus == 'lobby') {
-                return const Center(child: Text('Waiting for game to start...'));
-              }
-
-              if (game.gameStatus == 'finished') {
-                return _buildGameEndScreen(game);
-              }
-
-              return Column(
-                children: [
-                  // Other players
-                  _buildOtherPlayers(game, auth.userId ?? ''),
-                  // Game info
-                  _buildGameInfo(game),
-                  // Draw piles and active player video
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Active player video
-                      const ActivePlayerVideo(),
-                      const SizedBox(width: 16),
-                      // Draw piles
-                      _buildDrawPiles(game),
-                    ],
-                  ),
-                  // Table melds (all players' melds - for lay off)
-                  _buildTableMelds(game),
-                  // My melds staging area
-                  if (_melds.isNotEmpty) _buildMeldsStaging(),
-                  // My hand
-                  Expanded(child: _buildMyHand(game)),
-                  // Action buttons
-                  _buildActionButtons(game),
-                ],
-              );
             },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'help',
+                child: Row(
+                  children: const [
+                    Icon(Icons.help_outline, size: 20),
+                    SizedBox(width: 8),
+                    Text('How to play'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'theme',
+                child: Row(
+                  children: [
+                    Icon(
+                      ref.watch(themeProvider).isDark
+                          ? Icons.light_mode_outlined
+                          : Icons.dark_mode_outlined,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(ref.watch(themeProvider).isDark ? 'Light mode' : 'Dark mode'),
+                  ],
+                ),
+              ),
+            ],
           ),
-          // Tutorial overlay
-          if (_showTutorial)
-            TutorialOverlay(
-              roundNumber: game.roundNumber,
-              onDismiss: () => setState(() => _showTutorial = false),
-            ),
         ],
       ),
-    );
-  }
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Builder(
+              builder: (context) {
+                if (game.error != null) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Error: ${game.error}', style: const TextStyle(color: Colors.red)),
+                        ElevatedButton(
+                          onPressed: () => game.clearError(),
+                          child: const Text('Dismiss'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-  Widget _buildOtherPlayers(game, String userId) {
-    final otherPlayers = game.players.where((p) => p['id'] != userId).toList();
+                if (game.gameStatus == 'lobby') {
+                  return const Center(child: Text('Waiting for game to start...'));
+                }
 
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: otherPlayers.length,
-        itemBuilder: (context, index) {
-          final player = otherPlayers[index];
-          final isCurrentTurn = player['id'] == game.currentPlayerId;
-          final score = player['score'] ?? 0;
-          final displayName = player['displayName'] as String?;
-          final username = player['username'] as String?;
-          final name = displayName ?? username ?? 'P${player['seat'] + 1}';
-          final initials = name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
-          return Container(
-            width: 80,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(
-                color: isCurrentTurn ? AppTheme.primary : Theme.of(context).dividerColor,
-                width: isCurrentTurn ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: isCurrentTurn
-                        ? AppTheme.primary.withValues(alpha: 0.2)
-                        : Theme.of(context).dividerColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: isCurrentTurn ? AppTheme.primary : null,
+                if (game.gameStatus == 'finished') {
+                  return _buildGameEndScreen(game);
+                }
+
+                return Column(
+                  children: [
+                    // Scrollable content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Game info (turn status)
+                            _buildGameInfo(game),
+                            // Draw piles and active player video
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Active player video
+                                const ActivePlayerVideo(),
+                                const SizedBox(width: 16),
+                                // Draw piles
+                                _buildDrawPiles(game),
+                              ],
+                            ),
+                            // Table melds (all players' melds - for lay off)
+                            _buildTableMelds(game),
+                            // My melds staging area
+                            if (_meldIndices.isNotEmpty) _buildMeldsStaging(game),
+                            // My hand
+                            _buildMyHand(game),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$score pts',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
-                ),
-                Text(
-                  '${player['handCount']} cards',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+                    // Action buttons (fixed at bottom)
+                    _buildActionButtons(game),
+                  ],
+                );
+              },
             ),
-          );
-        },
+            // Tutorial overlay
+            if (_showTutorial)
+              TutorialOverlay(
+                roundNumber: game.roundNumber,
+                onDismiss: () => setState(() => _showTutorial = false),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -756,7 +725,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 
-  Widget _buildMeldsStaging() {
+  Widget _buildMeldsStaging(game) {
+    final melds = _getMelds(game.hand);
     return Container(
       padding: const EdgeInsets.all(8),
       color: Colors.amber.withValues(alpha: 0.2),
@@ -774,7 +744,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ],
           ),
           Wrap(
-            children: _melds.map((meld) {
+            children: melds.map((meld) {
               return Container(
                 margin: const EdgeInsets.all(4),
                 padding: const EdgeInsets.all(4),
@@ -803,7 +773,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final canLayOff = game.isMyTurn &&
         game.turnPhase == 'mustDiscard' &&
         !game.isFinalTurnPhase &&
-        _selectedCards.isNotEmpty;
+        _selectedCardIndices.isNotEmpty;
 
     // Collect all melds from all players
     final allMelds = <({int playerIndex, int meldIndex, List<String> cards, String playerName, bool isMe})>[];
@@ -876,17 +846,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 bool canExtend = false;
                 if (canLayOff && meld.cards.length >= 3) {
                   // Determine meld type from cards
-                  final game = ref.read(gameProvider);
+                  final gameRef = ref.read(gameProvider);
+                  final selectedCards = _getSelectedCards(gameRef.hand);
                   try {
                     // Try as run first, then book
-                    canExtend = game.canExtendMeld(
+                    canExtend = gameRef.canExtendMeld(
                           meld.cards,
-                          _selectedCards.toList(),
+                          selectedCards,
                           MeldType.run,
                         ) ||
-                        game.canExtendMeld(
+                        gameRef.canExtendMeld(
                           meld.cards,
-                          _selectedCards.toList(),
+                          selectedCards,
                           MeldType.book,
                         );
                   } catch (_) {
@@ -951,72 +922,90 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   Widget _buildMyHand(game) {
-    // Filter out cards that are in staged melds
-    final cardsInMelds = _melds.expand((m) => m).toSet();
-    final availableCards = game.hand.where((c) => !cardsInMelds.contains(c)).toList();
+    // Get indices of cards that are in staged melds
+    final indicesInMelds = _meldIndices.expand((m) => m).toSet();
+    // Build list of (index, card) for cards NOT in melds
+    final hand = game.hand as List<String>;
+    final availableCards = <({int index, String card})>[];
+    for (var i = 0; i < hand.length; i++) {
+      if (!indicesInMelds.contains(i)) {
+        availableCards.add((index: i, card: hand[i]));
+      }
+    }
     final myScore = game.scores[ref.read(authProvider).userId] ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Text('My Hand (${availableCards.length} cards)', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('My Hand (${availableCards.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Score: $myScore',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppTheme.primary,
+              // Score button - opens scoreboard on tap
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showScoreboard(game),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.leaderboard_rounded,
+                          size: 18,
+                          color: AppTheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Score: $myScore',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.leaderboard_outlined, size: 20),
-                tooltip: 'Scoreboard',
-                onPressed: () => _showScoreboard(game),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: availableCards.map<Widget>((card) {
-                  final isSelected = _selectedCards.contains(card);
-                  return GestureDetector(
-                    onTap: () {
-                      if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
-                        _toggleCardSelection(card);
-                      }
-                    },
-                    onDoubleTap: () {
-                      if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
-                        game.discard(card);
-                      }
-                    },
-                    child: CardWidget(
-                      cardCode: card,
-                      isSelected: isSelected,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: availableCards.map<Widget>((item) {
+              final isSelected = _selectedCardIndices.contains(item.index);
+              return GestureDetector(
+                onTap: () {
+                  if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
+                    _toggleCardSelection(item.index);
+                  }
+                },
+                onDoubleTap: () {
+                  if (game.isMyTurn && game.turnPhase == 'mustDiscard' && !game.isFinalTurnPhase) {
+                    game.discard(item.card);
+                  }
+                },
+                child: CardWidget(
+                  cardCode: item.card,
+                  isSelected: isSelected,
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -1028,23 +1017,27 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return const SizedBox.shrink();
     }
 
+    final hand = game.hand as List<String>;
+    final selectedCards = _getSelectedCards(hand);
+    final melds = _getMelds(hand);
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          if (_selectedCards.length >= 3 && game.isValidMeld(_selectedCards.toList()))
+          if (_selectedCardIndices.length >= 3 && game.isValidMeld(selectedCards))
             ElevatedButton(
               onPressed: _createMeldFromSelection,
               child: const Text('Create Meld'),
             ),
-          if (_melds.isNotEmpty)
+          if (_meldIndices.isNotEmpty)
             ElevatedButton(
               onPressed: _layMelds,
               child: const Text('Lay Melds'),
             ),
           // Lay Off button - when cards selected and meld target selected
-          if (_selectedCards.isNotEmpty &&
+          if (_selectedCardIndices.isNotEmpty &&
               _layOffTargetPlayerIndex != null &&
               _layOffTargetMeldIndex != null &&
               !game.isFinalTurnPhase)
@@ -1055,28 +1048,28 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               ),
               child: const Text('Lay Off'),
             ),
-          if (_selectedCards.length == 1 && !game.isFinalTurnPhase)
+          if (_selectedCardIndices.length == 1 && !game.isFinalTurnPhase)
             ElevatedButton(
               onPressed: () {
-                final card = _selectedCards.first;
-                if (game.canGoOut(_melds, card)) {
+                final card = selectedCards.first;
+                if (game.canGoOut(melds, card)) {
                   _goOut(card);
                 } else {
                   game.discard(card);
-                  _selectedCards.clear();
+                  _selectedCardIndices.clear();
                   setState(() {});
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: game.canGoOut(_melds, _selectedCards.first) ? Colors.green : null,
+                backgroundColor: game.canGoOut(melds, selectedCards.first) ? Colors.green : null,
               ),
-              child: Text(game.canGoOut(_melds, _selectedCards.first) ? 'Go Out!' : 'Discard'),
+              child: Text(game.canGoOut(melds, selectedCards.first) ? 'Go Out!' : 'Discard'),
             ),
-          if (_selectedCards.length == 1 && game.isFinalTurnPhase)
+          if (_selectedCardIndices.length == 1 && game.isFinalTurnPhase)
             ElevatedButton(
               onPressed: () {
-                game.discard(_selectedCards.first);
-                _selectedCards.clear();
+                game.discard(selectedCards.first);
+                _selectedCardIndices.clear();
                 setState(() {});
               },
               child: const Text('Discard'),

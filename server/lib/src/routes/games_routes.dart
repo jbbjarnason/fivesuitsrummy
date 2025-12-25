@@ -33,6 +33,7 @@ class GamesRoutes {
     router.post('/', _createGame);
     router.get('/<gameId>', _getGame);
     router.delete('/<gameId>', _deleteGame);
+    router.post('/<gameId>/leave', _leaveGame);
     router.post('/<gameId>/invite', _invitePlayer);
     router.post('/<gameId>/nudge', _nudgeHost);
     router.post('/<gameId>/nudge-player', _nudgePlayer);
@@ -213,6 +214,52 @@ class GamesRoutes {
 
     return Response(200,
         body: jsonEncode({'status': 'deleted'}),
+        headers: {'content-type': 'application/json'});
+  }
+
+  Future<Response> _leaveGame(Request request, String gameId) async {
+    final userId = request.context['userId'] as String?;
+    if (userId == null) return _unauthorized();
+
+    final game = await (db.select(db.games)
+      ..where((g) => g.id.equals(gameId)))
+        .getSingleOrNull();
+
+    if (game == null) {
+      return _error(404, 'not_found', 'Game not found');
+    }
+
+    // Cannot leave if you are the host
+    if (game.createdBy == userId) {
+      return _error(400, 'is_host', 'Host cannot leave the game. Delete it instead.');
+    }
+
+    // Can only leave games in lobby status (not started)
+    if (game.status != 'lobby') {
+      return _error(400, 'game_started', 'Cannot leave a game that has already started');
+    }
+
+    // Check if user is in the game
+    final playerRecord = await (db.select(db.gamePlayers)
+      ..where((gp) => gp.gameId.equals(gameId) & gp.userId.equals(userId)))
+        .getSingleOrNull();
+
+    if (playerRecord == null) {
+      return _error(400, 'not_in_game', 'You are not in this game');
+    }
+
+    // Remove the player from the game
+    await (db.delete(db.gamePlayers)
+      ..where((gp) => gp.gameId.equals(gameId) & gp.userId.equals(userId)))
+        .go();
+
+    // Delete any pending game invitation notifications for this user
+    await (db.delete(db.notifications)
+      ..where((n) => n.gameId.equals(gameId) & n.userId.equals(userId)))
+        .go();
+
+    return Response(200,
+        body: jsonEncode({'status': 'left'}),
         headers: {'content-type': 'application/json'});
   }
 
