@@ -2,7 +2,7 @@ name: fivecrowns_app
 description: Five Crowns card game - fcrown.centroid.is
 publish_to: 'none'
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: ^3.8.1
