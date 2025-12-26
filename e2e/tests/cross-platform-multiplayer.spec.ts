@@ -105,7 +105,10 @@ async function invitePlayer(accessToken: string, gameId: string, userId: string)
   return res.status === 200;
 }
 
+// Skip in CI - requires iOS simulator which is only available on macOS
 test.describe('Cross-Platform Multiplayer', () => {
+  test.skip(!!process.env.CI, 'Cross-platform tests require iOS simulator (macOS only)');
+
   test('Web player hosts, iOS player joins and plays together', async ({ page }) => {
     // Step 1: Create two verified users - one for web (host), one for iOS (guest)
     console.log('Creating host user (web)...');

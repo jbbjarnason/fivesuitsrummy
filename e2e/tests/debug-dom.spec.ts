@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-test('debug flutter dom', async ({ page }) => {
+test.describe('Debug DOM', () => {
+  // Skip in CI - this is a debug utility
+  test.skip(!!process.env.CI, 'Debug test - skipped in CI');
+
+  test('debug flutter dom', async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(5000);
@@ -46,4 +50,5 @@ test('debug flutter dom', async ({ page }) => {
     const inputsAfter = await page.locator('input').count();
     console.log('  inputs after click:', inputsAfter);
   }
+  });
 });

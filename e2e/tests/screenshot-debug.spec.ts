@@ -3,7 +3,11 @@ import { test, expect } from '@playwright/test';
 const API_URL = 'http://localhost:8080';
 const MAILPIT_URL = 'http://localhost:8025';
 
-test('screenshot games screen', async ({ page }) => {
+test.describe('Screenshot Debug', () => {
+  // Skip in CI - this is a debug/screenshot utility
+  test.skip(!!process.env.CI, 'Debug test - skipped in CI');
+
+  test('screenshot games screen', async ({ page }) => {
   // First login a user
   const email = 'player1@test.local';
   const password = 'password123';
@@ -56,4 +60,5 @@ test('screenshot games screen', async ({ page }) => {
   await page.screenshot({ path: 'test-results/games-screen-after-wait.png', fullPage: true });
 
   console.log('Screenshots saved to test-results/');
+  });
 });

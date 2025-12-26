@@ -40,6 +40,11 @@ jobs:
             --dart-define=API_URL=${{ env.API_URL }} \
             --dart-define=WS_URL=${{ env.WS_URL }}
 
+      - name: Add privacy policy
+        run: |
+          cp docs/privacy-policy.html app/build/web/
+          cp docs/index.html app/build/web/legal.html
+
       - name: Upload Web artifact
         uses: actions/upload-artifact@v4
         with:
