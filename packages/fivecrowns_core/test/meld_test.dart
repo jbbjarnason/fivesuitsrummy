@@ -140,13 +140,14 @@ void main() {
       expect(MeldValidator.isValidBook(cards, round), false);
     });
 
-    test('invalid book - same suit', () {
+    test('valid book - same suit allowed (two decks)', () {
+      // Five Crowns uses two decks, so duplicate suits are valid in books
       final cards = [
         Card(Suit.hearts, Rank.queen),
-        Card(Suit.hearts, Rank.queen), // same suit
+        Card(Suit.hearts, Rank.queen), // same suit - OK!
         Card(Suit.diamonds, Rank.queen),
       ];
-      expect(MeldValidator.isValidBook(cards, round), false);
+      expect(MeldValidator.isValidBook(cards, round), true);
     });
 
     test('invalid book - too few cards', () {

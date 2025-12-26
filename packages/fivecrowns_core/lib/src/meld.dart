@@ -96,12 +96,8 @@ class MeldValidator {
     final rank = naturals.first.rank;
     if (!naturals.every((c) => c.rank == rank)) return false;
 
-    // All natural cards must have different suits
-    final suits = <Suit>{};
-    for (final card in naturals) {
-      if (suits.contains(card.suit)) return false;
-      suits.add(card.suit!);
-    }
+    // Note: Duplicate suits ARE allowed in books since Five Crowns uses two decks.
+    // The only requirement is that all natural cards have the same rank.
 
     return true;
   }
