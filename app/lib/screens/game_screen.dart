@@ -44,7 +44,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // Hand reordering - tracks display order using card strings
   // This preserves order across draws/discards since we track by card value, not index
-  List<String> _handCardOrder = [];
+  final List<String> _handCardOrder = [];
 
   @override
   void initState() {
@@ -440,6 +440,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           },
         ),
         actions: [
+          const SizedBox(width: 8), // Spacing between title and controls
           // LiveKit audio controls (compact)
           LiveKitControls(
             gameId: widget.gameId,
@@ -1055,7 +1056,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               const SizedBox(width: 8),
               // Reorder hint icon
               Tooltip(
-                message: 'Drag the handle above cards to reorder',
+                message: 'Long-press and drag cards to reorder',
                 child: Icon(
                   Icons.swap_horiz_rounded,
                   size: 16,
@@ -1134,76 +1135,59 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          // Reorderable hand using ReorderableListView in horizontal mode
-          SizedBox(
-            height: 110, // Fixed height for the reorderable area (card + drag handle)
-            child: ReorderableListView.builder(
-              scrollDirection: Axis.horizontal,
-              buildDefaultDragHandles: false,
-              itemCount: availableDisplayOrder.length,
-              onReorder: (oldIndex, newIndex) {
-                // Convert from available display indices to card order indices
-                final oldCard = hand[availableDisplayOrder[oldIndex]];
-                final oldCardOrderIndex = _handCardOrder.indexOf(oldCard);
+          // Wrapping hand layout - cards wrap to multiple rows
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: List.generate(availableDisplayOrder.length, (displayIndex) {
+              final handIndex = availableDisplayOrder[displayIndex];
+              final card = hand[handIndex];
+              final isSelected = _selectedCardIndices.contains(handIndex);
 
-                // Find the target position in _handCardOrder
-                int newCardOrderIndex;
-                if (newIndex >= availableDisplayOrder.length) {
-                  newCardOrderIndex = _handCardOrder.length;
-                } else {
-                  final newCard = hand[availableDisplayOrder[newIndex]];
-                  newCardOrderIndex = _handCardOrder.indexOf(newCard);
-                }
+              return DragTarget<int>(
+                onWillAcceptWithDetails: (details) => details.data != displayIndex,
+                onAcceptWithDetails: (details) {
+                  final fromDisplayIndex = details.data;
+                  // Convert display indices to card order indices
+                  final fromCard = hand[availableDisplayOrder[fromDisplayIndex]];
+                  final toCard = hand[availableDisplayOrder[displayIndex]];
+                  final fromCardOrderIndex = _handCardOrder.indexOf(fromCard);
+                  final toCardOrderIndex = _handCardOrder.indexOf(toCard);
+                  _reorderHand(fromCardOrderIndex, toCardOrderIndex);
+                },
+                builder: (context, candidateData, rejectedData) {
+                  final isDropTarget = candidateData.isNotEmpty;
 
-                _reorderHand(oldCardOrderIndex, newCardOrderIndex);
-              },
-              proxyDecorator: (child, index, animation) {
-                return AnimatedBuilder(
-                  animation: animation,
-                  builder: (context, child) {
-                    final scale = 1.0 + (animation.value * 0.1);
-                    return Transform.scale(
-                      scale: scale,
-                      child: Material(
-                        elevation: 8,
-                        color: Colors.transparent,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: child,
-                );
-              },
-              itemBuilder: (context, displayIndex) {
-                final handIndex = availableDisplayOrder[displayIndex];
-                final card = hand[handIndex];
-                final isSelected = _selectedCardIndices.contains(handIndex);
-
-                return Padding(
-                  key: ValueKey('card_$handIndex'),
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Drag handle at top - only this triggers reorder
-                      ReorderableDragStartListener(
-                        index: displayIndex,
-                        child: Container(
-                          width: 65,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                          ),
-                          child: Icon(
-                            Icons.drag_handle,
-                            size: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                  return LongPressDraggable<int>(
+                    data: displayIndex,
+                    delay: const Duration(milliseconds: 150),
+                    feedback: Material(
+                      elevation: 8,
+                      color: Colors.transparent,
+                      child: Transform.scale(
+                        scale: 1.1,
+                        child: CardWidget(
+                          cardCode: card,
+                          isSelected: isSelected,
                         ),
                       ),
-                      // Card - tap/double-tap only, no drag
-                      GestureDetector(
+                    ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.3,
+                      child: CardWidget(
+                        cardCode: card,
+                        isSelected: isSelected,
+                      ),
+                    ),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: isDropTarget
+                            ? Border.all(color: AppTheme.primary, width: 2)
+                            : null,
+                      ),
+                      child: GestureDetector(
                         onTap: () {
                           if (game.isMyTurn && game.turnPhase == 'mustDiscard') {
                             _toggleCardSelection(handIndex);
@@ -1219,11 +1203,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           isSelected: isSelected,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                  );
+                },
+              );
+            }),
           ),
         ],
       ),
